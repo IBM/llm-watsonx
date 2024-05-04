@@ -3,7 +3,7 @@ name = "llm-watsonx"
 version = "0.1.0"
 description = "LLM plugin for IBM watsonx models"
 readme = "README.md"
-authors = [{name = "h0rv"}]
+authors = [{name = "Robby Horvath"}]
 license = {text = "Apache-2.0"}
 classifiers = [
     "License :: OSI Approved :: Apache Software License"
@@ -12,7 +12,7 @@ dependencies = [
     "llm",
     "ibm-watsonx-ai>=1.0.1",
 ]
-requires-python = ">3.7"
+requires-python = ">=3.10"
 
 [project.optional-dependencies]
 test = ["pytest"]
