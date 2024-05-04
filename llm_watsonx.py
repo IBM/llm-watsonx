@@ -1,5 +1,5 @@
 import os
-from typing import List, Literal, Optional, Union, get_args, get_origin, Dict, Any
+from typing import Any, Dict, List, Literal, Optional, Union, get_args, get_origin
 
 import llm
 from ibm_watsonx_ai.foundation_models import Embeddings, ModelInference, get_model_specs
@@ -27,8 +27,10 @@ def get_env():
 
     return (api_key, project_id)
 
+
 def add_model_name_prefix(model):
     return watsonx_model_name_prefix + model
+
 
 def strip_model_name_prefix(model):
     return model.lstrip(watsonx_model_name_prefix)
@@ -182,7 +184,11 @@ class Watsonx(llm.Model):
         if prompt.system:
             prompt.prompt = prompt.system + "\n\n" + prompt.prompt
 
-        text = prompt.prompt if not conversation else self.build_chat_prompt(prompt, conversation)
+        text = (
+            prompt.prompt
+            if not conversation
+            else self.build_chat_prompt(prompt, conversation)
+        )
 
         params = prompt.options.to_payload()
 
