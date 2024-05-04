@@ -1,13 +1,15 @@
 import os
-from typing import List, Literal, Optional, Union, get_args, get_origin
+from typing import List, Literal, Optional, Union, get_args, get_origin, Dict, Any
 
 import llm
 from ibm_watsonx_ai.foundation_models import Embeddings, ModelInference, get_model_specs
 
-default_instance_url = "https://us-south.ml.cloud.ibm.com"
 watsonx_api_key_env_var = "WATSONX_API_KEY"
 watsonx_project_id_env_var = "WATSONX_PROJECT_ID"
 watsonx_url_env_var = "WATSONX_URL"
+default_instance_url = "https://us-south.ml.cloud.ibm.com"
+
+watsonx_model_name_prefix = "watsonx/"
 
 
 def get_env():
@@ -24,6 +26,12 @@ def get_env():
         )
 
     return (api_key, project_id)
+
+def add_model_name_prefix(model):
+    return watsonx_model_name_prefix + model
+
+def strip_model_name_prefix(model):
+    return model.lstrip(watsonx_model_name_prefix)
 
 
 @llm.hookimpl
@@ -66,14 +74,14 @@ class Watsonx(llm.Model):
 
     class Options(llm.Options):
         decoding_method: Optional[Literal["sample", "greedy"]] = None
-        length_penalty: Optional[str] = None
+        length_penalty: Optional[Dict[str, Any]] = None
         temperature: Optional[float] = None
         top_p: Optional[float] = None
         top_k: Optional[int] = None
         random_seed: Optional[int] = None
         repetition_penalty: Optional[float] = None
         min_new_tokens: Optional[int] = None
-        max_new_tokens: Optional[int] = None
+        max_new_tokens: int = 100
         stop_sequences: Optional[List[str]] = None
         time_limit: Optional[int] = None
         truncate_input_tokens: Optional[int] = None
@@ -113,9 +121,8 @@ class Watsonx(llm.Model):
                 lines.append(line)
             return "\n".join(lines)
 
-    def __init__(self, model_id, chat=False):
+    def __init__(self, model_id):
         self.model_id = model_id
-        self.chat = chat
         self.url = os.environ.get(watsonx_url_env_var) or default_instance_url
 
     def __str__(self):
@@ -136,12 +143,13 @@ class Watsonx(llm.Model):
 
     @classmethod
     def get_model_ids(cls):
-        return (model["model_id"] for model in cls.get_models())
+        return (add_model_name_prefix(model["model_id"]) for model in cls.get_models())
 
     def get_client(self):
         api_key, project_id = get_env()
+        model_id = strip_model_name_prefix(self.model_id)
         return ModelInference(
-            model_id=self.model_id,
+            model_id=model_id,
             credentials={
                 "apikey": api_key,
                 "url": self.url,
@@ -166,16 +174,16 @@ class Watsonx(llm.Model):
                 "Assistant:",
             ]
         )
-        return prompt_lines
+        return "".join(prompt_lines)
 
     def execute(self, prompt, stream, response, conversation):
         client = self.get_client()
 
-        text_lines = [prompt.prompt]
-        if self.chat:
-            text_lines = self.build_chat_prompt(prompt, conversation)
+        if prompt.system:
+            prompt.prompt = prompt.system + "\n\n" + prompt.prompt
 
-        text = "".join(text_lines)
+        text = prompt.prompt if not conversation else self.build_chat_prompt(prompt, conversation)
+
         params = prompt.options.to_payload()
 
         if stream:
@@ -217,12 +225,13 @@ class WatsonxEmbedding(llm.EmbeddingModel):
 
     @classmethod
     def get_model_ids(cls):
-        return (model["model_id"] for model in cls.get_models())
+        return (add_model_name_prefix(model["model_id"]) for model in cls.get_models())
 
     def get_client(self):
         api_key, project_id = get_env()
+        model_id = strip_model_name_prefix(self.model_id)
         return Embeddings(
-            model_id=self.model_id,
+            model_id=model_id,
             credentials={
                 "apikey": api_key,
                 "url": self.url,
