@@ -65,7 +65,7 @@ llm -m watsonx/meta-llama/llama-3-8b-instruct \
 ```bash
 llm chat -m watsonx/meta-llama/llama-3-8b-instruct \
     -o max_new_tokens 1000 \
-    -s "You are chatbot assistant for a CLI (command line interface). Provide and help give users with unix commands to acieve their tasks"
+    -s "You are an assistant for a CLI (command line interface). Provide and help give unix commands to help users achieve their tasks."
 ```
 
 ### Embeddings
