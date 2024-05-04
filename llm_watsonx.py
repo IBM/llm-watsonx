@@ -1,9 +1,29 @@
-import llm
 import os
+from typing import List, Literal, Optional, Union, get_args, get_origin
 
-from ibm_watsonx_ai.foundation_models import get_model_specs, ModelInference, Embeddings
+import llm
+from ibm_watsonx_ai.foundation_models import Embeddings, ModelInference, get_model_specs
 
-watsonx_url = "https://us-south.ml.cloud.ibm.com"
+default_instance_url = "https://us-south.ml.cloud.ibm.com"
+watsonx_api_key_env_var = "WATSONX_API_KEY"
+watsonx_project_id_env_var = "WATSONX_PROJECT_ID"
+watsonx_url_env_var = "WATSONX_URL"
+
+
+def get_env():
+    api_key = os.environ.get(watsonx_api_key_env_var)
+    if api_key is None:
+        raise ValueError(
+            f"Environment variable '{watsonx_api_key_env_var}' is not set."
+        )
+
+    project_id = os.environ.get(watsonx_project_id_env_var)
+    if project_id is None:
+        raise ValueError(
+            f"Environment variable '{watsonx_project_id_env_var}' is not set."
+        )
+
+    return (api_key, project_id)
 
 
 @llm.hookimpl
@@ -14,69 +34,117 @@ def register_commands(cli):
 
     @watsonx.command(name="list-models")
     def list_models():
-        for model in Watsonx.get_models():
-            print(model["model_id"])
+        for model_id in Watsonx.get_model_ids():
+            print(model_id)
+
+    @watsonx.command(name="list-model-options")
+    def list_options():
+        print(Watsonx.Options.list_string())
 
     @watsonx.command(name="list-embedding-models")
     def list_embedding_models():
-        for model in WatsonxEmbedding.get_models():
-            print(model["model_id"])
+        for model_id in WatsonxEmbedding.get_model_ids():
+            print(model_id)
 
 
 @llm.hookimpl
 def register_models(register):
-    for model in Watsonx.get_models():
-        register(Watsonx(model["model_id"]))
+    for model_id in Watsonx.get_model_ids():
+        register(Watsonx(model_id))
 
 
 @llm.hookimpl
 def register_embedding_models(register):
-    for model in WatsonxEmbedding.get_models():
-        register(WatsonxEmbedding(model["model_id"]))
+    for model_id in WatsonxEmbedding.get_model_ids():
+        register(WatsonxEmbedding(model_id))
 
 
 class Watsonx(llm.Model):
     model_id = "watsonx"
 
-    needs_key = "watsonx"
-    key_env_var = "WATSONX_API_KEY"
-    needs_project_id = "watsonx_project_id"
-    project_id_env_var = "WATSONX_PROJECT_ID"
-
     can_stream = True
+
+    class Options(llm.Options):
+        decoding_method: Optional[Literal["sample", "greedy"]] = None
+        length_penalty: Optional[str] = None
+        temperature: Optional[float] = None
+        top_p: Optional[float] = None
+        top_k: Optional[int] = None
+        random_seed: Optional[int] = None
+        repetition_penalty: Optional[float] = None
+        min_new_tokens: Optional[int] = None
+        max_new_tokens: Optional[int] = None
+        stop_sequences: Optional[List[str]] = None
+        time_limit: Optional[int] = None
+        truncate_input_tokens: Optional[int] = None
+
+        def to_payload(self):
+            payload = {}
+            for attr, value in self.__dict__.items():
+                if value is not None:
+                    payload[attr] = value
+            return payload
+
+        @classmethod
+        def list_string(cls):
+            lines = []
+            max_len = (
+                max(len(attr_name) for attr_name in cls.__annotations__.keys()) + 1
+            )
+            for attr_name, attr_type in cls.__annotations__.items():
+                origin = get_origin(attr_type)
+                arg_names = []
+                if origin is Union:
+                    args = get_args(attr_type)
+                    arg_names = [
+                        str(arg).replace("typing.", "")
+                        if hasattr(arg, "__args__")
+                        else arg.__name__
+                        for arg in args
+                        if arg is not type(None)
+                    ]
+                elif hasattr(attr_type, "__args__"):
+                    arg_names = [str(arg) for arg in attr_type.__args__]
+                else:
+                    arg_names = [attr_type.__name__.replace("typing.", "")]
+                arg_str = ", ".join(arg_names) if len(arg_names) > 1 else arg_names[0]
+                arg_str = f"{arg_str}" if hasattr(attr_type, "__args__") else arg_str
+                line = f"{attr_name.ljust(max_len)}: {arg_str}"
+                lines.append(line)
+            return "\n".join(lines)
 
     def __init__(self, model_id, chat=False):
         self.model_id = model_id
         self.chat = chat
+        self.url = os.environ.get(watsonx_url_env_var) or default_instance_url
 
-    @staticmethod
-    def get_models():
-        specs = get_model_specs(url=watsonx_url)
+    def __str__(self):
+        return f"watsonx: {self.model}"
+
+    @classmethod
+    def get_models(cls):
+        url = os.environ.get(watsonx_url_env_var) or default_instance_url
+        specs = get_model_specs(url=url)
         models = specs["resources"]
-        for model in models:
-            is_text_model = any(
-                [True for func in model["functions"] if func["id"] == "text_generation"]
-            )
-            if not is_text_model:
-                continue
+        filtered_models = (
+            model
+            for model in models
+            if any(func["id"] == "text_generation" for func in model["functions"])
+        )
+        for model in filtered_models:
             yield model
 
+    @classmethod
+    def get_model_ids(cls):
+        return (model["model_id"] for model in cls.get_models())
+
     def get_client(self):
-        api_key = os.environ.get(self.key_env_var)
-        if api_key is None:
-            raise ValueError(f"Environment variable '{self.key_env_var}' is not set.")
-
-        project_id = os.environ.get(self.project_id_env_var)
-        if project_id is None:
-            raise ValueError(
-                f"Environment variable '{self.project_id_env_var}' is not set."
-            )
-
+        api_key, project_id = get_env()
         return ModelInference(
             model_id=self.model_id,
             credentials={
                 "apikey": api_key,
-                "url": watsonx_url,
+                "url": self.url,
             },
             project_id=project_id,
         )
@@ -103,69 +171,66 @@ class Watsonx(llm.Model):
     def execute(self, prompt, stream, response, conversation):
         client = self.get_client()
 
-        lines = [prompt.prompt]
+        text_lines = [prompt.prompt]
         if self.chat:
-            lines = self.build_chat_prompt(prompt, conversation)
+            text_lines = self.build_chat_prompt(prompt, conversation)
 
-        p = "".join(lines)
+        text = "".join(text_lines)
+        params = prompt.options.to_payload()
 
         if stream:
             return client.generate_text_stream(
-                prompt=p,
-                params=None,
+                prompt=text,
+                params=params,
             )
         else:
             return client.generate_text(
-                prompt=p,
-                params=None,
+                prompt=text,
+                params=params,
             )
 
 
 class WatsonxEmbedding(llm.EmbeddingModel):
     model_id = "watsonx"
 
-    needs_key = "watsonx"
     key_env_var = "WATSONX_API_KEY"
-    needs_project_id = "watsonx_project_id"
     project_id_env_var = "WATSONX_PROJECT_ID"
-
-    can_stream = True
+    url_env_var = "WATSONX_URL"
 
     def __init__(self, model_id):
         self.model_id = model_id
+        self.url = os.environ.get(watsonx_url_env_var) or default_instance_url
 
-    @staticmethod
-    def get_models():
-        specs = get_model_specs(url=watsonx_url)
+    def __str__(self):
+        return f"watsonx embedding: {self.model}"
+
+    @classmethod
+    def get_models(cls):
+        url = os.environ.get(watsonx_url_env_var) or default_instance_url
+        specs = get_model_specs(url=url)
         models = specs["resources"]
-        for model in models:
-            if "embedding model" not in model["short_description"]:
-                continue
+        filtered_models = (
+            model for model in models if "embedding model" in model["short_description"]
+        )
+        for model in filtered_models:
             yield model
 
+    @classmethod
+    def get_model_ids(cls):
+        return (model["model_id"] for model in cls.get_models())
+
     def get_client(self):
-        api_key = os.environ.get(self.key_env_var)
-        if api_key is None:
-            raise ValueError(f"Environment variable '{self.key_env_var}' is not set.")
-
-        project_id = os.environ.get(self.project_id_env_var)
-        if project_id is None:
-            raise ValueError(
-                f"Environment variable '{self.project_id_env_var}' is not set."
-            )
-
+        api_key, project_id = get_env()
         return Embeddings(
             model_id=self.model_id,
             credentials={
                 "apikey": api_key,
-                "url": watsonx_url,
+                "url": self.url,
             },
             project_id=project_id,
         )
 
     def embed_batch(self, items):
         client = self.get_client()
-
         embeddings = client.embed_documents(texts=items)
-
         return embeddings
