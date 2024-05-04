@@ -1,0 +1,26 @@
+[project]
+name = "llm-watsonx"
+version = "0.1.0"
+description = "LLM plugin for IBM watsonx models"
+readme = "README.md"
+authors = [{name = "h0rv"}]
+license = {text = "Apache-2.0"}
+classifiers = [
+    "License :: OSI Approved :: Apache Software License"
+]
+dependencies = [
+    "llm",
+    "ibm-watsonx-ai>=1.0.1",
+]
+requires-python = ">3.7"
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/h0rv/llm-watsonx"
+Changelog = "https://github.com/h0rv/llm-watsonx/releases"
+Issues = "https://github.com/h0rv/llm-watsonx/issues"
+
+[project.entry-points.llm]
+watsonx = "llm_watsonx"
