@@ -128,7 +128,7 @@ class Watsonx(llm.Model):
         self.url = os.environ.get(watsonx_url_env_var) or default_instance_url
 
     def __str__(self):
-        return f"watsonx: {self.model}"
+        return f"watsonx: {self.model_id}"
 
     @classmethod
     def get_models(cls):
@@ -216,7 +216,7 @@ class WatsonxEmbedding(llm.EmbeddingModel):
         self.url = os.environ.get(watsonx_url_env_var) or default_instance_url
 
     def __str__(self):
-        return f"watsonx embedding: {self.model}"
+        return f"watsonx embedding: {self.model_id}"
 
     @classmethod
     def get_models(cls):
