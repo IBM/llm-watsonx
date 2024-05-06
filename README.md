@@ -3,6 +3,8 @@
 [![PyPI](https://img.shields.io/pypi/v/llm-watsonx.svg)](https://pypi.org/project/llm-watsonx/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/h0rv/llm-watsonx/blob/main/LICENSE)
 
+An [IBM watsonx.ai](https://www.ibm.com/products/watsonx-ai) plugin for [`llm`](https://github.com/simonw/llm).
+
 ## Installation
 
 Install this plugin in the same environment as LLM. From the current directory
