@@ -19,10 +19,12 @@ You will need to provide the following:
 
 - API Key from IBM Cloud IAM: https://cloud.ibm.com/iam/apikeys
 - Project ID (from watsonx.ai instance URL: https://dataplatform.cloud.ibm.com/projects//)
-- Associate a WML service (in watsonx.ai instance) 
-(Manage Tab > Service & Integrations > Associate service)
-WML service(s) are hosted on your IBM Cloud account (https://cloud.ibm.com/resources). Make sure to have a WML service provisioned and active in your IBM Cloud account for best response rate.
-<br />
+- Associate a Watson Machine Learning (WML) service to your watsonx.ai instance
+  1. Inside your watsonx project, navigate to: "Manage" > "Service & Integrations"
+    - Alternatively, paste your project ID here and go this URL: `https://dataplatform.cloud.ibm.com/projects/<YOUR PROJECT ID>/manage/services?context=wx`
+  2. Click "Associate service" > Check "WatsonxMachineLearning" > Click Associate
+
+  > Note: WML service(s) are hosted on your IBM Cloud account (https://cloud.ibm.com/resources). Make sure to have a WML service provisioned and active in your IBM Cloud account for best response rate.
 
 ```bash
 export WATSONX_API_KEY=
